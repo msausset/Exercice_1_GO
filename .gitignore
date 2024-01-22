@@ -1,0 +1,13 @@
+# Fichiers d'exécution
+*.exe
+
+# Répertoire build
+/build/
+
+# Fichiers d'environnement
+.env
+
+# Fichiers journal
+/access.log
+/log.txt
+

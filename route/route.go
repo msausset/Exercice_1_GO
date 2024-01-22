@@ -5,10 +5,15 @@ import (
 	"net/http"
 	"exo1/dictionary"
 	"encoding/json"
+	"exo1/middleware"
 )
 
 // SetupRoutes initialise les routes avec Gorilla Mux.
 func SetupRoutes(r *mux.Router) {
+
+	r.Use(middleware.LoggingMiddleware)          
+	r.Use(middleware.AuthMiddleware)
+
 	r.HandleFunc("/add", AddHandler).Methods("POST")
 	r.HandleFunc("/get/{word}", GetHandler).Methods("GET")
 	r.HandleFunc("/remove/{word}", RemoveHandler).Methods("DELETE")

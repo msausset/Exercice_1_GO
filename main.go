@@ -14,6 +14,7 @@ func main() {
 
 	// Utilisation du middleware
 	router.Use(middleware.LoggingMiddleware)
+	router.Use(middleware.AuthMiddleware)
 
 	// Initialisation des routes
 	route.SetupRoutes(router)
