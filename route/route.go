@@ -19,7 +19,7 @@ func AddHandler(w http.ResponseWriter, r *http.Request) {
 	var entry dictionary.Entry
 	err := json.NewDecoder(r.Body).Decode(&entry) 
 	if err != nil {
-		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		http.Error(w, "Données JSON invalides", http.StatusBadRequest)
 		return
 	}
 
@@ -32,7 +32,7 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	word := mux.Vars(r)["word"]
 	definition, found := dictionary.Get(word)
 	if !found {
-		http.Error(w, "Word not found", http.StatusNotFound)
+		http.Error(w, "Mot introuvable", http.StatusNotFound)
 		return
 	}
 
