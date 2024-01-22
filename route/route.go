@@ -1,13 +1,13 @@
 package route
 
 import (
-	"encoding/json"
-	"exo1/dictionary"
 	"github.com/gorilla/mux"
 	"net/http"
+	"exo1/dictionary"
+	"encoding/json"
 )
 
-// Initialisation des routes Gorilla Mux
+// SetupRoutes initialise les routes avec Gorilla Mux.
 func SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/add", AddHandler).Methods("POST")
 	r.HandleFunc("/get/{word}", GetHandler).Methods("GET")

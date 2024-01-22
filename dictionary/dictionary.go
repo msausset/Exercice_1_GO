@@ -104,7 +104,7 @@ func List() error {
 	return nil
 }
 
-// Fonction utilitaire pour lire les entrées depuis le fichier
+// Fonction pour lire les entrées depuis le fichier
 func readEntriesFromFile() (WordMap, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -130,7 +130,7 @@ func readEntriesFromFile() (WordMap, error) {
 	return entries, scanner.Err()
 }
 
-// Fonction utilitaire pour écrire les entrées dans le fichier
+// Fonction pour écrire les entrées dans le fichier
 func writeEntriesToFile(entries WordMap) error {
 	file, err := os.Create(filePath)
 	if err != nil {
@@ -153,7 +153,7 @@ func writeEntriesToFile(entries WordMap) error {
 	return writer.Flush()
 }
 
-// Fonction utilitaire pour ajouter une entrée au fichier
+// Fonction pour ajouter une entrée au fichier
 func addEntryToFile(word, definition string) {
 	wg.Add(1)
 	defer wg.Done()
@@ -173,7 +173,7 @@ func addEntryToFile(word, definition string) {
 	}
 }
 
-// Fonction utilitaire pour supprimer une entrée du fichier
+// Fonction pour supprimer une entrée du fichier
 func removeEntryFromFile(wordToRemove string) {
 	wg.Add(1)
 	defer wg.Done()
