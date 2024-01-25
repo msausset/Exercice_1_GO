@@ -1,16 +1,14 @@
 package dictionary
 
 import (
-	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"sort"
-	"strings"
 	"sync"
+
 	"github.com/gorilla/mux"
 )
 
@@ -20,202 +18,97 @@ type Entry struct {
 	Definition string `json:"definition"`
 }
 
-// Stockage mot/définition
-type WordMap map[string]Entry
-
-// Fichier texte
-const filePath = "dictionary_data.txt"
-
-// Channels pour les opérations d'ajout et de suppression
-var (
-	addChan    = make(chan entryOperation)
-	removeChan = make(chan string)
-	wg         sync.WaitGroup
-)
-
-// Structure pour l'ajout d'un mot
-type entryOperation struct {
-	word       string
-	definition string
-}
-
-// Goroutines
-func init() {
-	go processAddOperations()
-	go processRemoveOperations()
-}
+// Stockage mot/définition en mémoire
+var entriesMap = make(map[string]Entry)
+var entriesMutex sync.RWMutex
 
 // Fonction ajout
-func processAddOperations() {
-	for {
-		select {
-		case entry := <-addChan:
-			addEntryToFile(entry.word, entry.definition)
-		}
-	}
-}
-
-// Fonction suppression
-func processRemoveOperations() {
-	for {
-		select {
-		case word := <-removeChan:
-			removeEntryFromFile(word)
-		}
-	}
-}
-
-// Ajout avec channel
 func Add(entry Entry) {
-	addChan <- entryOperation{entry.Word, entry.Definition}
+	entriesMutex.Lock()
+	defer entriesMutex.Unlock()
+
+	entriesMap[entry.Word] = entry
 }
 
 // Récupération d'un mot
 func Get(word string) (string, bool) {
-	entries, err := readEntriesFromFile()
-	if err != nil {
-		return "", false
-	}
+	entriesMutex.RLock()
+	defer entriesMutex.RUnlock()
 
-	definition, found := entries[word]
-	return definition.Definition, found
+	entry, found := entriesMap[word]
+	return entry.Definition, found
 }
 
-// Suppression avec channel
+// Suppression
 func Remove(word string) {
-	removeChan <- word
+	entriesMutex.Lock()
+	defer entriesMutex.Unlock()
+
+	delete(entriesMap, word)
 }
 
 // Liste triée par ordre
 func List() error {
-	entries, err := readEntriesFromFile()
-	if err != nil {
-		return err
-	}
+	entriesMutex.RLock()
+	defer entriesMutex.RUnlock()
 
 	var words []string
-	for word := range entries {
+	for word := range entriesMap {
 		words = append(words, word)
 	}
 
 	sort.Strings(words)
 
 	for _, word := range words {
-		fmt.Printf("%s: %s\n", word, entries[word])
+		fmt.Printf("%s: %s\n", word, entriesMap[word])
 	}
 
 	return nil
 }
 
-// Fonction pour lire les entrées depuis le fichier
-func readEntriesFromFile() (WordMap, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
+// Fonction pour ajouter une entrée en mémoire
+func addEntry(word, definition string) {
+	entriesMutex.Lock()
+	defer entriesMutex.Unlock()
 
-	entries := make(WordMap)
-	scanner := bufio.NewScanner(file)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		parts := strings.Split(line, "=")
-		if len(parts) == 2 {
-			var entry Entry
-			err := json.Unmarshal([]byte(parts[1]), &entry)
-			if err == nil {
-				entries[parts[0]] = entry
-			}
-		}
-	}
-
-	return entries, scanner.Err()
+	entriesMap[word] = Entry{Word: word, Definition: definition}
 }
 
-// Fonction pour écrire les entrées dans le fichier
-func writeEntriesToFile(entries WordMap) error {
-	file, err := os.Create(filePath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
+// Fonction pour supprimer une entrée de la mémoire
+func removeEntry(wordToRemove string) {
+	entriesMutex.Lock()
+	defer entriesMutex.Unlock()
 
-	writer := bufio.NewWriter(file)
-	for word, entry := range entries {
-		jsonData, err := json.Marshal(entry)
-		if err != nil {
-			return err
-		}
-		_, err = fmt.Fprintf(writer, "%s=%s\n", word, jsonData)
-		if err != nil {
-			return err
-		}
-	}
-
-	return writer.Flush()
-}
-
-// Fonction pour ajouter une entrée au fichier
-func addEntryToFile(word, definition string) {
-	wg.Add(1)
-	defer wg.Done()
-
-	entries, err := readEntriesFromFile()
-	if err != nil {
-		log.Println("Erreur lors de la lecture des entrées :", err)
-		return
-	}
-
-	entries[word] = Entry{Word: word, Definition: definition}
-
-	err = writeEntriesToFile(entries)
-	if err != nil {
-		log.Println("Erreur lors de l'écriture des entrées :", err)
-		return
-	}
-}
-
-// Fonction pour supprimer une entrée du fichier
-func removeEntryFromFile(wordToRemove string) {
-	wg.Add(1)
-	defer wg.Done()
-
-	entries, err := readEntriesFromFile()
-	if err != nil {
-		log.Println("Erreur lors de la lecture des entrées :", err)
-		return
-	}
-
-	delete(entries, wordToRemove)
-
-	err = writeEntriesToFile(entries)
-	if err != nil {
-		log.Println("Erreur lors de l'écriture des entrées :", err)
-		return
-	}
+	delete(entriesMap, wordToRemove)
 }
 
 // Requete d'ajout
+// Requete d'ajout
 func AddHandler(w http.ResponseWriter, r *http.Request) {
-	var entry Entry
-	err := json.NewDecoder(r.Body).Decode(&entry)
-	if err != nil {
-		log.Println("Erreur lors de la lecture du corps JSON :", err)
-		http.Error(w, "Données JSON invalides", http.StatusBadRequest)
-		return
-	}
+    var entry Entry
+    err := json.NewDecoder(r.Body).Decode(&entry)
+    if err != nil {
+        log.Println("Erreur lors de la lecture du corps JSON :", err)
+        http.Error(w, "Données JSON invalides", http.StatusBadRequest)
+        return
+    }
 
-	// Validation des données
-	if err := validateEntry(entry); err != nil {
-		log.Println("Erreur de validation des données :", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+    // Validation des données
+    if err := validateEntry(entry); err != nil {
+        log.Println("Erreur de validation des données :", err)
+        http.Error(w, err.Error(), http.StatusBadRequest)
+        return
+    }
 
-	Add(Entry{Word: entry.Word, Definition: entry.Definition})
-	w.WriteHeader(http.StatusCreated)
+    Add(entry)
+
+    // Envoyer une réponse JSON vide et définir le code de statut 201
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusCreated)
+    w.Write([]byte("{}"))
 }
+
+
 
 // Validation des données pour l'ajout d'une entrée
 func validateEntry(entry Entry) error {
@@ -233,9 +126,12 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	word := mux.Vars(r)["word"]
 	definition, found := Get(word)
 	if !found {
+		log.Printf("Mot introuvable : %s\n", word)
 		http.Error(w, "Mot introuvable", http.StatusNotFound)
 		return
 	}
+
+	log.Printf("Mot trouvé : %s, Définition : %s\n", word, definition)
 
 	response := struct {
 		Word       string `json:"word"`
@@ -249,6 +145,7 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+
 // Suppression
 func RemoveHandler(w http.ResponseWriter, r *http.Request) {
 	word := mux.Vars(r)["word"]
@@ -258,15 +155,11 @@ func RemoveHandler(w http.ResponseWriter, r *http.Request) {
 
 // Liste triée par ordre
 func ListHandler(w http.ResponseWriter, r *http.Request) {
-	entries, err := readEntriesFromFile()
-	if err != nil {
-		log.Println("Erreur lors de la récupération des entrées :", err)
-		http.Error(w, "Erreur lors de la récupération des entrées", http.StatusInternalServerError)
-		return
-	}
+	entriesMutex.RLock()
+	defer entriesMutex.RUnlock()
 
 	var words []string
-	for word := range entries {
+	for word := range entriesMap {
 		words = append(words, word)
 	}
 
@@ -274,7 +167,7 @@ func ListHandler(w http.ResponseWriter, r *http.Request) {
 
 	var resultList []map[string]interface{}
 	for _, word := range words {
-		entry := entries[word]
+		entry := entriesMap[word]
 		resultList = append(resultList, map[string]interface{}{"word": entry.Word, "definition": entry.Definition})
 	}
 
