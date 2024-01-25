@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"sort"
 	"sync"
-
 	"github.com/gorilla/mux"
 )
 
@@ -82,7 +81,6 @@ func removeEntry(wordToRemove string) {
 	delete(entriesMap, wordToRemove)
 }
 
-// Requete d'ajout
 // Requete d'ajout
 func AddHandler(w http.ResponseWriter, r *http.Request) {
     var entry Entry
